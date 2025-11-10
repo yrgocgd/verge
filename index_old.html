@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-R-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Video Scrubber</title>
+  <style>
+    /* --- 1. CUSTOMIZE YOUR SETTINGS HERE --- */
+    :root {
+      /* Button Position (relative to video) */
+      --button-top: 50%;
+      --button-left: 50%;
+
+      /* Button Size & Style */
+      --button-font-size: 16px;
+      --button-padding: 12px 24px;
+      --button-bg-color: rgba(255, 255, 255, 0.8);
+      --button-text-color: #000;
+      --button-border-radius: 8px;
+    }
+    /* ------------------------------------------- */
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    /* * This container is the key to responsiveness and positioning.
+     * It's set to 100% width and uses 'position: relative'
+     * so the button and video can be placed inside it.
+     */
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 900px; /* You can change this max-width */
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      /* Disables text selection and other defaults during drag */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+    
+    /* * This CSS makes the video responsive.
+     * - 'width: 100%' makes it fill the container horizontally.
+     * - 'height: auto' makes it scale proportionally.
+     * - 'display: block' removes any extra space below the video.
+     */
+    #scrubVideo {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* * This styles the button using the CSS variables defined above.
+     * - 'position: absolute' takes it out of the normal flow.
+     * - 'top' and 'left' position it relative to the container.
+     * - 'transform' centers it perfectly on its position coordinates.
+     */
+    #actionButton {
+      position: absolute;
+      top: var(--button-top);
+      left: var(--button-left);
+      transform: translate(-50%, -50%);
+      
+      font-size: var(--button-font-size);
+      padding: var(--button-padding);
+      background-color: var(--button-bg-color);
+      color: var(--button-text-color);
+      border-radius: var(--button-border-radius);
+      
+      border: none;
+      cursor: pointer;
+      z-index: 10;
+      font-weight: bold;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    #actionButton:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="video-container" id="videoContainer">
+    <video id="scrubVideo" muted playsinline preload="metadata">
+      <source src="video.webm" type="video/webm">
+      Your browser does not support the video tag.
+    </video>
+    
+    <button id="actionButton">Click Me</button>
+  </div>
+
+  <script>
+    /* --- 1. CUSTOMIZE YOUR LINKS HERE --- */
+
+    /**
+     * IMPORTANT: 'FPS' (Frames Per Second)
+     * You MUST set this to match the FPS of your video file.
+     * Web browsers work in seconds, not frames. This number is
+     * used to convert your frame numbers into seconds.
+     * Common values are 24, 25, 30, or 60.
+     */
+    const FPS = 24;
+
+    /**
+     * This is your list of links.
+     * Add objects with 'frame' (the frame number) and 
+     * 'url' (the destination link).
+     */
+    const linkData = [
+      { frame: 20, url: 'https://google.com' },
+      { frame: 65, url: 'https://bing.com' },
+      { frame: 120, url: 'https://duckduckgo.com' },
+      { frame: 180, url: 'https://wikipedia.org' }
+    ];
+    
+    /* ------------------------------------------- */
+
+
+    // --- 2. APPLICATION LOGIC (No need to edit below) ---
+
+    // Get elements from the page
+    const videoContainer = document.getElementById('videoContainer');
+    const video = document.getElementById('scrubVideo');
+    const actionButton = document.getElementById('actionButton');
+
+    // State variables
+    let isDragging = false;
+    let hasDragged = false; // Used to prevent click-after-drag
+    let currentActiveLink = null;
+    let linkPoints = []; // Will store { time: ..., url: ... }
+    let animationFrameId = null; // To control the tweening
+
+    // Helper: Find the closest link point to a given time
+    function findClosestLinkPoint(currentTime) {
+      if (!linkPoints.length) return null;
+      
+      // Use 'reduce' to find the object with the minimum time difference
+      return linkPoints.reduce((prev, curr) => {
+        const prevDiff = Math.abs(prev.time - currentTime);
+        const currDiff = Math.abs(curr.time - currentTime);
+        return (currDiff < prevDiff ? curr : prev);
+      });
+    }
+
+    // Update the button's internal link to the closest snap point
+    function updateButtonLink() {
+      const closestPoint = findClosestLinkPoint(video.currentTime);
+      if (closestPoint) {
+        currentActiveLink = closestPoint;
+        // You could update the button text here if you want
+        // e.g., actionButton.textContent = `Go to ${closestPoint.url}`;
+      }
+    }
+
+    // Animate the video's currentTime to a target time
+    function tweenToTime(targetTime) {
+      // Cancel any ongoing animation
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      const startTime = video.currentTime;
+      const timeDiff = targetTime - startTime;
+      const duration = 300; // 300ms tween animation
+      let startTimestamp = null;
+
+      function step(timestamp) {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const elapsed = timestamp - startTimestamp;
+        
+        // Calculate progress (0 to 1) and apply easing
+        let progress = Math.min(elapsed / duration, 1);
+        let easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+
+        video.currentTime = startTime + timeDiff * easedProgress;
+
+        if (progress < 1) {
+          // Continue animation
+          animationFrameId = requestAnimationFrame(step);
+        } else {
+          // Animation finished
+          video.currentTime = targetTime; // Ensure it lands perfectly
+          updateButtonLink(); // Final update
+          animationFrameId = null;
+        }
+      }
+      // Start the animation
+      animationFrameId = requestAnimationFrame(step);
+    }
+    
+    // Called when user releases drag
+    function handleSnap() {
+      if (!linkPoints.length) return;
+
+      const closestPoint = findClosestLinkPoint(video.currentTime);
+      if (closestPoint) {
+        // Set the active link *now*
+        currentActiveLink = closestPoint;
+        // Start the tween animation
+        tweenToTime(closestPoint.time);
+      }
+    }
+
+    // Called on mouse/touch move
+    function handleDragMove(e) {
+      if (!isDragging) return;
+      
+      // This was a drag, not a click
+      hasDragged = true; 
+      
+      // Stop any snapping animation
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      
+      // Get container boundaries
+      const rect = videoContainer.getBoundingClientRect();
+      
+      // Get X position for both mouse and touch
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      if (clientX === undefined) return;
+
+      // Calculate progress (0.0 to 1.0)
+      let progress = (clientX - rect.left) / rect.width;
+      progress = Math.max(0, Math.min(1, progress)); // Clamp
+
+      // Set video time
+      video.currentTime = progress * video.duration;
+      
+      // Update the button link as we drag
+      updateButtonLink();
+    }
+    
+    // --- Event Listeners ---
+
+    // 1. Wait for video metadata to load
+    video.addEventListener('loadedmetadata', () => {
+      // Pause video initially
+      video.pause();
+      
+      // Now video.duration is available, we can calculate times
+      linkPoints = linkData
+        .map(d => ({
+          time: d.frame / FPS,
+          url: d.url
+        }))
+        .filter(p => p.time <= video.duration); // Remove links past video end
+        
+      linkPoints.sort((a, b) => a.time - b.time); // Sort by time
+
+      // Set the initial button link
+      updateButtonLink();
+    });
+
+    // 2. Drag Handlers (on the whole container)
+    // Mouse
+    videoContainer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      isDragging = true;
+      hasDragged = false;
+      handleDragMove(e); // Allow click-to-jump
+    });
+    
+    // Touch
+    videoContainer.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Prevents page scrolling on mobile
+      isDragging = true;
+      hasDragged = false;
+      handleDragMove(e); // Allow tap-to-jump
+    }, { passive: false }); // 'passive: false' is needed for preventDefault
+
+    // Move
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('touchmove', handleDragMove, { passive: false });
+
+    // Release
+    const handleRelease = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      
+      if (hasDragged) {
+        handleSnap(); // Snap to closest point
+      }
+    };
+    window.addEventListener('mouseup', handleRelease);
+    window.addEventListener('touchend', handleRelease);
+    window.addEventListener('mouseleave', handleRelease); // Stop if mouse leaves window
+
+    // 3. Button Click Handler
+    actionButton.addEventListener('click', (e) => {
+      if (hasDragged) {
+        // This was the end of a drag, not a click.
+        // Reset the flag and do nothing.
+        e.preventDefault();
+        e.stopPropagation();
+        hasDragged = false;
+        return;
+      }
+      
+      // This was a genuine click
+      if (currentActiveLink) {
+        console.log('Opening link:', currentActiveLink.url);
+        window.open(currentActiveLink.url, '_blank');
+      } else {
+        console.warn('Button clicked, but no active link is set.');
+      }
+    });
+
+  </script>
+</body>
+</html>
