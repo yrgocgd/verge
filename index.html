@@ -121,15 +121,32 @@
     });
 
     container.addEventListener('pointerup', (ev)=>{
-      if(!isDragging)return;isDragging=false;container.releasePointerCapture(ev.pointerId);
-      let currentFrame=frameFromTime(video.currentTime);
-      if(links.length===0)return;
-      let nearestIndex=0;let bestDist=Infinity;
-      for(let i=0;i<links.length;i++){const d=Math.abs(currentFrame-links[i].frame);if(d<bestDist){bestDist=d;nearestIndex=i;}}
-      const targetTime=links[nearestIndex].time;
-      const snapDuration=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration'))||400;
-      tweenToTime(targetTime,snapDuration);
-    });
+  if(!isDragging) return;
+  isDragging = false;
+  container.releasePointerCapture(ev.pointerId);
+
+  if(links.length === 0) return;
+
+  const currentFrame = frameFromTime(video.currentTime);
+  let nearestIndex = 0;
+  let bestDist = Infinity;
+
+  for(let i = 0; i < links.length; i++){
+    // Calculate distance considering looping
+    const directDist = Math.abs(currentFrame - links[i].frame);
+    const loopDist = totalFrames - directDist; // distance if we wrap around
+    const dist = Math.min(directDist, loopDist);
+
+    if(dist < bestDist){
+      bestDist = dist;
+      nearestIndex = i;
+    }
+  }
+
+  const targetTime = links[nearestIndex].time;
+  const snapDuration = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration')) || 400;
+  tweenToTime(targetTime, snapDuration);
+});
 
     container.addEventListener('pointercancel',()=>{isDragging=false;});
     video.addEventListener('loadedmetadata',()=>{
