@@ -104,20 +104,43 @@
 
     // Tween video to target time smoothly
     function tweenToTime(targetTime, durationMs){
-      if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
-      const start = video.currentTime;
-      const startTs = performance.now();
-      function step(now){
-        const t = Math.min((now-startTs)/durationMs, 1);
-        const eased = 1 - (1-t)*(1-t); // easeOutQuad
-        const cur = start + (targetTime - start) * eased;
-        video.currentTime = ((cur % duration) + duration) % duration; // Wrap-around
-        updateHUD();
-        if(t < 1){snapAnimation={raf:requestAnimationFrame(step)};}
-        else{snapAnimation=null;setActiveLinkByFrame(frameFromTime(video.currentTime));}
-      }
-      snapAnimation = {raf: requestAnimationFrame(step)};
+  if(snapAnimation){ cancelAnimationFrame(snapAnimation.raf); snapAnimation = null; }
+
+  let start = video.currentTime;
+  const end = targetTime;
+
+  // Compute shortest distance considering loop
+  let delta = end - start;
+  if (Math.abs(delta) > duration/2) {
+    // Wrap-around shortest path
+    if (delta > 0) {
+      delta = delta - duration; // go backward through loop
+    } else {
+      delta = delta + duration; // go forward through loop
     }
+  }
+
+  const startTs = performance.now();
+
+  function step(now){
+    const t = Math.min((now-startTs)/durationMs, 1);
+    const eased = 1 - (1-t)*(1-t); // easeOutQuad
+    let cur = start + delta * eased;
+    // Wrap around video duration
+    cur = ((cur % duration) + duration) % duration;
+    video.currentTime = cur;
+    updateHUD();
+    if(t < 1){
+      snapAnimation = { raf: requestAnimationFrame(step) };
+    } else {
+      snapAnimation = null;
+      setActiveLinkByFrame(frameFromTime(video.currentTime));
+    }
+  }
+
+  snapAnimation = { raf: requestAnimationFrame(step) };
+}
+
 
     // ====== EVENT HANDLERS ======
 
