@@ -6,137 +6,58 @@
   <title>Scrubbable WebM Player with Clickable Frame Links</title>
   <style>
     :root{
-      /* Customize these values to change button size/position and behavior */
-      --btn-width: 140px;        /* default button width */
-      --btn-height: 48px;        /* default button height */
-      --btn-top: 50%;            /* vertical position relative to video box (percent or px) */
-      --btn-left: 50%;           /* horizontal position relative to video box */
+      --btn-width: 140px;
+      --btn-height: 48px;
+      --btn-top: 50%;
+      --btn-left: 50%;
       --btn-radius: 10px;
-      --snap-duration: 400ms;    /* snap tween duration (used in JS too) */
+      --snap-duration: 400ms;
       --btn-font-size: 16px;
     }
 
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:#111;color:#eee}
-    .player-wrap{
-      max-width:1100px;
-      margin:40px auto;
-      padding:10px;
-    }
-
-    /* container keeps aspect ratio and is responsive */
-    .video-container{
-      position:relative;
-      width:100%;
-      aspect-ratio: 16/9; /* will keep proportions. change if your video has different ratio */
-      background: #000;
-      overflow:hidden;
-      touch-action:none; /* important: allows pointer events for drag on mobile without scrolling */
-      -webkit-user-select:none; user-select:none;
-    }
-
-    video{
-      position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block;
-      background: #000;
-    }
-
-    /* overlay button centered by default; uses CSS variables for position and size */
-    .overlay-btn{
-      position:absolute;
-      top:var(--btn-top);
-      left:var(--btn-left);
-      transform:translate(-50%,-50%);
-      width:var(--btn-width);
-      height:var(--btn-height);
-      display:flex;align-items:center;justify-content:center;
-      border-radius:var(--btn-radius);
-      background:rgba(255,255,255,0.08);
-      backdrop-filter: blur(4px);
-      box-shadow:0 6px 18px rgba(0,0,0,0.6);
-      border:1px solid rgba(255,255,255,0.06);
-      color:#fff; cursor:pointer; user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      font-size:var(--btn-font-size);
-      text-decoration:none;
-    }
-
-    .overlay-btn.disabled{opacity:0.45; pointer-events:none}
-
-    /* small helper HUD for developer to see current frame/time */
-    .hud{
-      position:absolute; right:8px; bottom:8px; padding:6px 10px; background:rgba(0,0,0,0.5); border-radius:6px; font-size:13px; color:#ddd;
-    }
-
-    /* accessibility: focus style */
+    .player-wrap{max-width:1100px;margin:40px auto;padding:10px;}
+    .video-container{position:relative;width:100%;aspect-ratio: 16/9;background:#000;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;}
+    video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#000;}
+    .overlay-btn{position:absolute;top:var(--btn-top);left:var(--btn-left);transform:translate(-50%,-50%);width:var(--btn-width);height:var(--btn-height);display:flex;align-items:center;justify-content:center;border-radius:var(--btn-radius);background:rgba(255,255,255,0.08);backdrop-filter:blur(4px);box-shadow:0 6px 18px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.06);color:#fff;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;font-size:var(--btn-font-size);text-decoration:none;}
+    .overlay-btn.disabled{opacity:0.45;pointer-events:none}
+    .hud{position:absolute;right:8px;bottom:8px;padding:6px 10px;background:rgba(0,0,0,0.5);border-radius:6px;font-size:13px;color:#ddd;}
     .overlay-btn:focus{outline:3px solid rgba(255,255,255,0.12)}
-
-    /* instructions */
     .info{margin-top:12px;font-size:14px;opacity:0.9}
-
-    @media (max-width:720px){
-      :root{--btn-width:110px; --btn-height:40px; --btn-font-size:14px}
-    }
+    @media (max-width:720px){:root{--btn-width:110px;--btn-height:40px;--btn-font-size:14px}}
   </style>
 </head>
 <body>
   <div class="player-wrap">
     <h2>Scrubbable WebM Player</h2>
-
     <div id="videoContainer" class="video-container" aria-label="Scrubbable video player">
-      <!-- Replace the src with your webm file. Use a reasonably encoded webm for seeking (keyframe interval matters). -->
       <video id="video" preload="metadata" playsinline>
         <source src="video.webm" type="video/webm">
         Your browser does not support the video tag.
       </video>
-
-      <!-- overlay button (opens the link associated with the current active frame-range) -->
       <a id="overlayBtn" class="overlay-btn" role="button" href="#" target="_self" aria-label="Open link for current frame">Go</a>
-
       <div id="hud" class="hud" aria-hidden="true">frame: - | time: -</div>
     </div>
-
-    <p class="info">Drag horizontally (mouse or finger) to scrub the video. When you release, the player will snap to the closest configured link-frame. Click the overlay button to open the link associated with the current snapped frame.</p>
-
-    <details>
-      <summary>How to configure (click to open)</summary>
-      <pre style="white-space:pre-wrap; padding:12px; background:#0b0b0b; border-radius:6px; margin:12px 0;">
-// In the script section of this file edit these values:
-
-// fps: set the frames-per-second of your .webm (used to convert frame numbers to seconds)
-// links: array of {frame: <integer>, url: '<link>'}
-// buttonTarget: "_self" or "_blank" depending on whether you want same tab or new tab.
-
-// You can also adjust CSS variables at the top of the file to change button size and relative position.
-      </pre>
-    </details>
+    <p class="info">Drag horizontally to scrub the video. When you release, the player snaps to the nearest link position. Click the overlay button to open that link.</p>
   </div>
 
   <script>
-  /*
-    USAGE / Notes:
-    - Put your own webm in place of sample.webm.
-    - Provide the video's true fps below (used to map frame numbers to seconds).
-    - Keyframe interval in the encoded webm affects how snappy seeking is; shorter keyframe intervals improve seek accuracy.
-  */
-
   (function(){
     const video = document.getElementById('video');
     const overlayBtn = document.getElementById('overlayBtn');
     const hud = document.getElementById('hud');
     const container = document.getElementById('videoContainer');
 
-    // ====== CONFIGURE HERE ======
-    const fps = 24; // frames per second of your video (edit to match your webm)
+    // ====== CONFIGURATION ======
+    const fps = 24; // frames per second of your video
+    const invertMouse = true; // <-- NEW OPTION: invert drag direction if true
 
-    // list of frame => url mappings. Edit these to your desired frame triggers.
-    // The player will snap to the nearest frame in this list when releasing a drag.
     const links = [
       {frame: 20, url: 'https://google.com'},
       {frame: 65, url: 'https://blender.org'},
-      {frame: 120, url: 'https://yrgo.se'}
+      {frame: 120, url: 'https://yrgo.com'}
     ];
-
-    // whether clicking opens in same tab or new tab
-    const buttonTarget = '_self'; // or '_blank'
+    const buttonTarget = '_self';
     // ============================
 
     let duration = 0;
@@ -148,159 +69,76 @@
     let snapAnimation = null;
 
     overlayBtn.target = buttonTarget;
-
-    // Sort links by frame ascending and precompute times
     links.sort((a,b)=>a.frame-b.frame);
 
-    function updateLinkTimes(){
-      for(const l of links){
-        l.time = l.frame / fps;
-      }
-    }
-
+    function updateLinkTimes(){ for(const l of links){ l.time = l.frame / fps; } }
     function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-
     function frameFromTime(t){return Math.round(t * fps);}    
     function timeFromFrame(f){return f / fps;}
-
-    function updateHUD(){
-      const frame = frameFromTime(video.currentTime);
-      hud.textContent = `frame: ${frame} | time: ${video.currentTime.toFixed(2)}s`;
-    }
+    function updateHUD(){const frame = frameFromTime(video.currentTime);hud.textContent = `frame: ${frame} | time: ${video.currentTime.toFixed(2)}s`;}
 
     function setActiveLinkByFrame(frame){
-      if(links.length === 0){ activeLinkIndex = -1; overlayBtn.classList.add('disabled'); overlayBtn.href = '#'; return; }
-      // find exact match or nearest
-      let nearest = 0; let bestDist = Infinity;
-      for(let i=0;i<links.length;i++){
-        const d = Math.abs(frame - links[i].frame);
-        if(d < bestDist){ bestDist = d; nearest = i; }
-      }
-      activeLinkIndex = nearest;
+      if(links.length===0){activeLinkIndex=-1;overlayBtn.classList.add('disabled');overlayBtn.href='#';return;}
+      let nearest=0;let bestDist=Infinity;
+      for(let i=0;i<links.length;i++){const d=Math.abs(frame-links[i].frame);if(d<bestDist){bestDist=d;nearest=i;}}
+      activeLinkIndex=nearest;
       overlayBtn.classList.remove('disabled');
-      overlayBtn.href = links[activeLinkIndex].url;
-      overlayBtn.setAttribute('data-active-frame', links[activeLinkIndex].frame);
-      overlayBtn.setAttribute('aria-label', 'Open: ' + links[activeLinkIndex].url + ' (frame '+links[activeLinkIndex].frame+')');
+      overlayBtn.href=links[activeLinkIndex].url;
+      overlayBtn.setAttribute('data-active-frame',links[activeLinkIndex].frame);
     }
 
-    // Tween helper: animate video.currentTime from current to target in ms
-    function tweenToTime(targetTime, durationMs){
-      if(snapAnimation){ cancelAnimationFrame(snapAnimation.raf); snapAnimation = null; }
-      const start = video.currentTime;
-      const startTs = performance.now();
+    function tweenToTime(targetTime,durationMs){
+      if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
+      const start=video.currentTime;const startTs=performance.now();
       function step(now){
-        const t = clamp((now - startTs)/durationMs, 0, 1);
-        // easing (easeOutQuad)
-        const eased = 1 - (1 - t)*(1 - t);
-        const cur = start + (targetTime - start) * eased;
-        video.currentTime = clamp(cur, 0, duration);
+        const t=clamp((now-startTs)/durationMs,0,1);
+        const eased=1-(1-t)*(1-t);
+        const cur=start+(targetTime-start)*eased;
+        video.currentTime=clamp(cur,0,duration);
         updateHUD();
-        if(t < 1){
-          snapAnimation = {raf: requestAnimationFrame(step)};
-        }else{
-          snapAnimation = null;
-          // finalise active link to the exact snapped frame
-          const finalFrame = frameFromTime(targetTime);
-          setActiveLinkByFrame(finalFrame);
-        }
+        if(t<1){snapAnimation={raf:requestAnimationFrame(step)};}else{snapAnimation=null;setActiveLinkByFrame(frameFromTime(targetTime));}
       }
-      snapAnimation = {raf: requestAnimationFrame(step)};
+      snapAnimation={raf:requestAnimationFrame(step)};
     }
 
-    // pointer handlers for drag scrubbing
     container.addEventListener('pointerdown', (ev)=>{
-      // only start drag for primary button or touch
-      if(ev.isPrimary === false) return;
+      if(ev.isPrimary===false)return;
       ev.preventDefault();
-      isDragging = true;
-      startX = ev.clientX;
-      startFrame = frameFromTime(video.currentTime);
+      isDragging=true;startX=ev.clientX;startFrame=frameFromTime(video.currentTime);
       container.setPointerCapture(ev.pointerId);
-      // if any running snap animation, cancel it
-      if(snapAnimation){ cancelAnimationFrame(snapAnimation.raf); snapAnimation = null; }
+      if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
     });
 
     container.addEventListener('pointermove', (ev)=>{
-      if(!isDragging) return;
-      ev.preventDefault();
-      const dx = ev.clientX - startX;
-      // map drag distance to full-width -> full-range of frames. You can tweak sensitivity here.
-      const fraction = dx / container.clientWidth; // positive when moving right
-      const frameDelta = Math.round(fraction * totalFrames);
-      const newFrame = clamp(startFrame + frameDelta, 0, totalFrames);
-      video.currentTime = timeFromFrame(newFrame);
+      if(!isDragging)return;ev.preventDefault();
+      const dx=ev.clientX-startX;
+      const fraction=(invertMouse?-dx:dx)/container.clientWidth; // apply inversion here
+      const frameDelta=Math.round(fraction*totalFrames);
+      const newFrame=clamp(startFrame+frameDelta,0,totalFrames);
+      video.currentTime=timeFromFrame(newFrame);
       updateHUD();
-      // optionally update which link is nearest as you drag (visual feedback)
       setActiveLinkByFrame(newFrame);
     });
 
     container.addEventListener('pointerup', (ev)=>{
-      if(!isDragging) return;
-      isDragging = false;
-      container.releasePointerCapture(ev.pointerId);
-      // snap to nearest configured link frame
-      let currentFrame = frameFromTime(video.currentTime);
-      if(links.length === 0) return;
-      // find nearest link frame
-      let nearestIndex = 0; let bestDist = Infinity;
-      for(let i=0;i<links.length;i++){
-        const d = Math.abs(currentFrame - links[i].frame);
-        if(d < bestDist){ bestDist = d; nearestIndex = i; }
-      }
-      const targetTime = links[nearestIndex].time;
-      // animate/tween to that time
-      const snapDuration = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration')) || 400;
-      tweenToTime(targetTime, snapDuration);
+      if(!isDragging)return;isDragging=false;container.releasePointerCapture(ev.pointerId);
+      let currentFrame=frameFromTime(video.currentTime);
+      if(links.length===0)return;
+      let nearestIndex=0;let bestDist=Infinity;
+      for(let i=0;i<links.length;i++){const d=Math.abs(currentFrame-links[i].frame);if(d<bestDist){bestDist=d;nearestIndex=i;}}
+      const targetTime=links[nearestIndex].time;
+      const snapDuration=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration'))||400;
+      tweenToTime(targetTime,snapDuration);
     });
 
-    // Also handle pointercancel
-    container.addEventListener('pointercancel', ()=>{ isDragging = false; });
-
-    // clicking overlay opens active link (already anchor). We prevent click while dragging to avoid accidental click.
-    let wasDraggingRecently = false;
-    container.addEventListener('pointerdown', ()=>{ wasDraggingRecently = false; });
-    container.addEventListener('pointermove', ()=>{ wasDraggingRecently = true; });
-    overlayBtn.addEventListener('click', (ev)=>{
-      if(wasDraggingRecently){ ev.preventDefault(); return; }
-      if(activeLinkIndex < 0){ ev.preventDefault(); return; }
-      // else the anchor will navigate according to its target attribute
+    container.addEventListener('pointercancel',()=>{isDragging=false;});
+    video.addEventListener('loadedmetadata',()=>{
+      duration=video.duration||0;totalFrames=Math.floor(duration*fps);updateLinkTimes();
+      for(const l of links){if(l.frame<0)l.frame=0;if(l.frame>totalFrames)l.frame=totalFrames;}
+      setActiveLinkByFrame(0);updateHUD();
     });
-
-    // if metadata is loaded, compute total frames and update HUD
-    video.addEventListener('loadedmetadata', ()=>{
-      duration = video.duration || 0;
-      totalFrames = Math.floor(duration * fps);
-      updateLinkTimes();
-      // ensure link frames are clamped inside video length
-      for(const l of links){ if(l.frame < 0) l.frame = 0; if(l.frame > totalFrames) l.frame = totalFrames; }
-      setActiveLinkByFrame(0);
-      updateHUD();
-    });
-
-    // keep HUD updated during normal playback (if any)
-    video.addEventListener('timeupdate', ()=>{
-      if(!isDragging && !snapAnimation) updateHUD();
-    });
-
-    // prevent context menu on long press / right click inside player
-    container.addEventListener('contextmenu', (e)=>e.preventDefault());
-
-    // on first click of overlayBtn when href is '#', do nothing
-    if(overlayBtn.getAttribute('href') === '#') overlayBtn.classList.add('disabled');
-
-    // keyboard: allow left/right arrow to step frames and Enter to open link
-    window.addEventListener('keydown', (e)=>{
-      if(document.activeElement === overlayBtn && (e.key === 'Enter' || e.key === ' ')) return; // normal button behaviour
-      if(e.key === 'ArrowLeft'){
-        e.preventDefault(); video.currentTime = Math.max(0, video.currentTime - (1/fps)); updateHUD(); setActiveLinkByFrame(frameFromTime(video.currentTime));
-      }else if(e.key === 'ArrowRight'){
-        e.preventDefault(); video.currentTime = Math.min(duration, video.currentTime + (1/fps)); updateHUD(); setActiveLinkByFrame(frameFromTime(video.currentTime));
-      }
-    });
-
-    // expose some debugging helpers in window for convenience
-    window.__scrubPlayer = {video, links, setFps: (v)=>{console.warn('setFps to',v);}, fps};
-
+    video.addEventListener('timeupdate',()=>{if(!isDragging&&!snapAnimation)updateHUD();});
+    container.addEventListener('contextmenu',(e)=>e.preventDefault());
   })();
   </script>
 </body>
