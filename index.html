@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Scrubbable WebM Player with Clickable Frame Links</title>
+  <title>Scrubbable WebM Player with Clickable Frame Links (Wrap-Around)</title>
   <style>
     :root{
       --btn-width: 140px;
@@ -38,7 +38,7 @@
       <a id="overlayBtn" class="overlay-btn" role="button" href="#" target="_self" aria-label="Open link for current frame">Go</a>
       <div id="hud" class="hud" aria-hidden="true">frame: - | time: -</div>
     </div>
-    <p class="info">Drag horizontally to scrub the video. When you release, the player snaps to the nearest link position. Click the overlay button to open that link.</p>
+    <p class="info">Drag horizontally to scrub the video (wrap-around). When you release, the player snaps to the nearest link. Click the overlay button to open that link.</p>
   </div>
 
   <script>
@@ -49,17 +49,18 @@
     const container = document.getElementById('videoContainer');
 
     // ====== CONFIGURATION ======
-    const fps = 24; // frames per second of your video
-    const invertMouse = false; // <-- NEW OPTION: invert drag direction if true
+    const fps = 24; // Frames per second
+    const invertMouse = true; // Invert drag direction
 
     const links = [
-      {frame: 1, url: 'https://google.com'},
-      {frame: 100, url: 'https://blender.org'},
-      {frame: 180, url: 'https://yrgo.com'}
+      {frame: 20, url: 'https://google.com'},
+      {frame: 65, url: 'https://blender.org'},
+      {frame: 120, url: 'https://yrgo.com'}
     ];
     const buttonTarget = '_self';
     // ============================
 
+    // ====== INTERNAL STATE ======
     let duration = 0;
     let totalFrames = 0;
     let isDragging = false;
@@ -71,91 +72,118 @@
     overlayBtn.target = buttonTarget;
     links.sort((a,b)=>a.frame-b.frame);
 
+    // ====== HELPERS ======
     function updateLinkTimes(){ for(const l of links){ l.time = l.frame / fps; } }
-    function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
     function frameFromTime(t){return Math.round(t * fps);}    
     function timeFromFrame(f){return f / fps;}
     function updateHUD(){const frame = frameFromTime(video.currentTime);hud.textContent = `frame: ${frame} | time: ${video.currentTime.toFixed(2)}s`;}
 
+    // Set active link for current frame
     function setActiveLinkByFrame(frame){
-      if(links.length===0){activeLinkIndex=-1;overlayBtn.classList.add('disabled');overlayBtn.href='#';return;}
-      let nearest=0;let bestDist=Infinity;
-      for(let i=0;i<links.length;i++){const d=Math.abs(frame-links[i].frame);if(d<bestDist){bestDist=d;nearest=i;}}
+      if(links.length===0){
+        activeLinkIndex=-1;
+        overlayBtn.classList.add('disabled');
+        overlayBtn.href='#';
+        return;
+      }
+      let nearest=0;
+      let bestDist=Infinity;
+      for(let i=0;i<links.length;i++){
+        let dist = Math.abs(frame - links[i].frame);
+        // Consider wrap-around distance
+        const altDist = Math.abs((frame + totalFrames) - links[i].frame);
+        const altDist2 = Math.abs(frame - (links[i].frame + totalFrames));
+        dist = Math.min(dist, altDist, altDist2);
+        if(dist < bestDist){bestDist = dist; nearest = i;}
+      }
       activeLinkIndex=nearest;
       overlayBtn.classList.remove('disabled');
       overlayBtn.href=links[activeLinkIndex].url;
-      overlayBtn.setAttribute('data-active-frame',links[activeLinkIndex].frame);
+      overlayBtn.setAttribute('data-active-frame', links[activeLinkIndex].frame);
     }
 
-    function tweenToTime(targetTime,durationMs){
+    // Tween video to target time smoothly
+    function tweenToTime(targetTime, durationMs){
       if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
-      const start=video.currentTime;const startTs=performance.now();
+      const start = video.currentTime;
+      const startTs = performance.now();
       function step(now){
-        const t=clamp((now-startTs)/durationMs,0,1);
-        const eased=1-(1-t)*(1-t);
-        const cur=start+(targetTime-start)*eased;
-        video.currentTime=clamp(cur,0,duration);
+        const t = Math.min((now-startTs)/durationMs, 1);
+        const eased = 1 - (1-t)*(1-t); // easeOutQuad
+        const cur = start + (targetTime - start) * eased;
+        video.currentTime = ((cur % duration) + duration) % duration; // Wrap-around
         updateHUD();
-        if(t<1){snapAnimation={raf:requestAnimationFrame(step)};}else{snapAnimation=null;setActiveLinkByFrame(frameFromTime(targetTime));}
+        if(t < 1){snapAnimation={raf:requestAnimationFrame(step)};}
+        else{snapAnimation=null;setActiveLinkByFrame(frameFromTime(video.currentTime));}
       }
-      snapAnimation={raf:requestAnimationFrame(step)};
+      snapAnimation = {raf: requestAnimationFrame(step)};
     }
+
+    // ====== EVENT HANDLERS ======
 
     container.addEventListener('pointerdown', (ev)=>{
-      if(ev.isPrimary===false)return;
+      if(ev.isPrimary===false) return;
       ev.preventDefault();
-      isDragging=true;startX=ev.clientX;startFrame=frameFromTime(video.currentTime);
+      isDragging = true;
+      startX = ev.clientX;
+      startFrame = frameFromTime(video.currentTime);
       container.setPointerCapture(ev.pointerId);
       if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
     });
 
     container.addEventListener('pointermove', (ev)=>{
-      if(!isDragging)return;ev.preventDefault();
-      const dx=ev.clientX-startX;
-      const fraction=(invertMouse?-dx:dx)/container.clientWidth; // apply inversion here
-      const frameDelta=Math.round(fraction*totalFrames);
-      const newFrame=clamp(startFrame+frameDelta,0,totalFrames);
-      video.currentTime=timeFromFrame(newFrame);
+      if(!isDragging) return;
+      ev.preventDefault();
+      const dx = ev.clientX - startX;
+      const fraction = (invertMouse ? -dx : dx)/container.clientWidth;
+      let frameDelta = Math.round(fraction * totalFrames);
+      let newFrame = startFrame + frameDelta;
+
+      // Full wrap-around dragging
+      newFrame = ((newFrame % totalFrames) + totalFrames) % totalFrames;
+
+      video.currentTime = timeFromFrame(newFrame);
       updateHUD();
       setActiveLinkByFrame(newFrame);
     });
 
     container.addEventListener('pointerup', (ev)=>{
-  if(!isDragging) return;
-  isDragging = false;
-  container.releasePointerCapture(ev.pointerId);
+      if(!isDragging) return;
+      isDragging = false;
+      container.releasePointerCapture(ev.pointerId);
 
-  if(links.length === 0) return;
+      if(links.length===0) return;
+      const currentFrame = frameFromTime(video.currentTime);
+      let nearestIndex = 0;
+      let bestDist = Infinity;
 
-  const currentFrame = frameFromTime(video.currentTime);
-  let nearestIndex = 0;
-  let bestDist = Infinity;
+      for(let i=0;i<links.length;i++){
+        let dist = Math.abs(currentFrame - links[i].frame);
+        const altDist = Math.abs((currentFrame + totalFrames) - links[i].frame);
+        const altDist2 = Math.abs(currentFrame - (links[i].frame + totalFrames));
+        dist = Math.min(dist, altDist, altDist2);
+        if(dist < bestDist){bestDist = dist; nearestIndex = i;}
+      }
 
-  for(let i = 0; i < links.length; i++){
-    // Calculate distance considering looping
-    const directDist = Math.abs(currentFrame - links[i].frame);
-    const loopDist = totalFrames - directDist; // distance if we wrap around
-    const dist = Math.min(directDist, loopDist);
-
-    if(dist < bestDist){
-      bestDist = dist;
-      nearestIndex = i;
-    }
-  }
-
-  const targetTime = links[nearestIndex].time;
-  const snapDuration = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration')) || 400;
-  tweenToTime(targetTime, snapDuration);
-});
-
-    container.addEventListener('pointercancel',()=>{isDragging=false;});
-    video.addEventListener('loadedmetadata',()=>{
-      duration=video.duration||0;totalFrames=Math.floor(duration*fps);updateLinkTimes();
-      for(const l of links){if(l.frame<0)l.frame=0;if(l.frame>totalFrames)l.frame=totalFrames;}
-      setActiveLinkByFrame(0);updateHUD();
+      const targetTime = links[nearestIndex].time;
+      const snapDuration = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration')) || 400;
+      tweenToTime(targetTime, snapDuration);
     });
-    video.addEventListener('timeupdate',()=>{if(!isDragging&&!snapAnimation)updateHUD();});
-    container.addEventListener('contextmenu',(e)=>e.preventDefault());
+
+    container.addEventListener('pointercancel', ()=>{isDragging=false;});
+
+    // Initialize video and links
+    video.addEventListener('loadedmetadata', ()=>{
+      duration = video.duration || 0;
+      totalFrames = Math.floor(duration * fps);
+      updateLinkTimes();
+      for(const l of links){if(l.frame<0) l.frame=0; if(l.frame>totalFrames) l.frame=totalFrames;}
+      setActiveLinkByFrame(0);
+      updateHUD();
+    });
+
+    video.addEventListener('timeupdate', ()=>{if(!isDragging&&!snapAnimation) updateHUD();});
+    container.addEventListener('contextmenu', (e)=>e.preventDefault());
   })();
   </script>
 </body>
