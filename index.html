@@ -177,7 +177,7 @@
     container.releasePointerCapture(ev.pointerId);
 
     // momentum
-    const friction=0.95;
+    const friction=2;
     function momentumStep(){
       velocity*=friction;
       if(Math.abs(velocity)<0.001){ snapToNearestLink(); return; }
