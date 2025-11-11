@@ -157,7 +157,7 @@ container.addEventListener('pointermove',(ev)=>{
   let newFrame=startFrame + fraction*totalFrames;
   newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
   video.currentTime=timeFromFrame(newFrame);
-  momentum=fraction*totalFrames*2; // inertia factor
+  momentum=fraction*totalFrames*4; // inertia factor
   updateHUD(Math.abs(momentum));
   setActiveLinkByFrame(newFrame);
 });
@@ -166,7 +166,7 @@ container.addEventListener('pointerup',(ev)=>{
   if(!isDragging) return;
   isDragging=false;
   container.releasePointerCapture(ev.pointerId);
-  const friction=0.4;
+  const friction=0.8;
 
   function momentumStep(){
     momentum*=friction;
