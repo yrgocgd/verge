@@ -175,11 +175,11 @@
     isDragging=false;
     container.releasePointerCapture(ev.pointerId);
 
-    const friction=0.90;
+    const friction=0.92;
     function momentumStep(){
       velocity*=friction;
       if(Math.abs(velocity)<0.001){ snapToNearestLink(); return; }
-      const deltaFrame=velocity*totalFrames*2;
+      const deltaFrame=velocity*totalFrames*4;
       let newFrame=frameFromTime(video.currentTime)+deltaFrame;
       newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
       video.currentTime=timeFromFrame(newFrame);
