@@ -157,7 +157,7 @@ container.addEventListener('pointermove',(ev)=>{
   let newFrame=startFrame + fraction*totalFrames;
   newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
   video.currentTime=timeFromFrame(newFrame);
-  momentum=fraction*totalFrames*0.25; // inertia factor
+  momentum=fraction*totalFrames*0.9; // inertia factor
   updateHUD(Math.abs(momentum));
   setActiveLinkByFrame(newFrame);
 });
