@@ -175,7 +175,7 @@
     isDragging=false;
     container.releasePointerCapture(ev.pointerId);
 
-    const friction=0.95; // higher friction = slows faster
+    const friction=0.90; // higher friction = slows faster
     const maxDelta=1.1; // max frames per step to prevent overspin
 
     function momentumStep(){
