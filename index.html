@@ -166,7 +166,7 @@ container.addEventListener('pointerup',(ev)=>{
   if(!isDragging) return;
   isDragging=false;
   container.releasePointerCapture(ev.pointerId);
-  const friction=0.9;
+  const friction=0.8;
 
   function momentumStep(){
     momentum*=friction;
