@@ -112,26 +112,37 @@ video {position:absolute; inset:0; width:100%; height:100%; object-fit:contain; 
     overlayBtn.setAttribute('data-active-frame',links[activeLinkIndex].frame);
   }
 
-  function tweenToTime(targetTime,durationMs){
-    if(snapAnimation){cancelAnimationFrame(snapAnimation.raf); snapAnimation=null;}
-    const start=video.currentTime;
-    const targetFrame=frameFromTime(targetTime);
-    const startFrameNum=frameFromTime(start);
-    const diffFrames=wrappedFrameDistance(startFrameNum,targetFrame);
-    const startTs=performance.now();
+  function tweenToTime(targetTime, durationMs){
+  if(snapAnimation){ cancelAnimationFrame(snapAnimation.raf); snapAnimation=null; }
 
-    function step(now){
-      const t=clamp((now-startTs)/durationMs,0,1);
-      const eased=1-(1-t)*(1-t);
-      const currentFrame=startFrameNum + diffFrames*eased;
-      const wrappedFrame=(currentFrame+totalFrames)%totalFrames;
-      video.currentTime=timeFromFrame(wrappedFrame);
-      updateHUD();
-      if(t<1){ snapAnimation={raf:requestAnimationFrame(step)}; }
-      else{ snapAnimation=null; setActiveLinkByFrame(frameFromTime(video.currentTime)); showButton(); }
+  const start = video.currentTime;
+  const startFrameNum = frameFromTime(start);
+  const targetFrameNum = frameFromTime(targetTime);
+  
+  // compute shortest distance on looping timeline
+  let diffFrames = wrappedFrameDistance(startFrameNum, targetFrameNum);
+
+  const startTs = performance.now();
+
+  function step(now){
+    const t = Math.min((now - startTs) / durationMs, 1);
+    const eased = 1 - (1 - t)*(1 - t); // easeOutQuad
+    const currentFrame = startFrameNum + diffFrames * eased;
+    const wrappedFrame = (currentFrame + totalFrames) % totalFrames; // wrap-around
+    video.currentTime = timeFromFrame(wrappedFrame);
+    updateHUD();
+
+    if(t < 1){
+      snapAnimation = { raf: requestAnimationFrame(step) };
+    } else {
+      snapAnimation = null;
+      setActiveLinkByFrame(frameFromTime(video.currentTime));
+      showButton(); // button fades in on snap
     }
-    snapAnimation={raf:requestAnimationFrame(step)};
   }
+
+  snapAnimation = { raf: requestAnimationFrame(step) };
+}
 
   // INPUT EVENTS
   container.addEventListener('pointerdown',ev=>{
