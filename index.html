@@ -1,210 +1,199 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Scrubbable WebM Player with Smooth Momentum</title>
-  <style>
-    :root {
-      --btn-width: 100px;
-      --btn-height: 100px;
-      --btn-top: 50%;
-      --btn-left: 50%;
-      --btn-radius: 50%;
-      --snap-duration: 400ms;
-      --btn-font-size: 16px;
-    }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scrubbable WebM Player with Smooth Inertia</title>
+<style>
+:root {
+  --btn-width: 100px;
+  --btn-height: 100px;
+  --btn-top: 50%;
+  --btn-left: 50%;
+  --btn-radius: 50%;
+  --snap-duration: 400ms;
+  --btn-font-size: 16px;
+}
 
-    html, body { height: 100%; margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:#111;color:#eee;}
-    .player-wrap{ max-width:1100px; margin:40px auto; padding:10px;}
-    .video-container{ position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;touch-action:none;user-select:none;}
-    video{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; background:#000;}
-    .overlay-btn{
-      position:absolute;
-      top:var(--btn-top);
-      left:var(--btn-left);
-      transform:translate(-50%,-50%);
-      width:var(--btn-width);
-      height:var(--btn-height);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:var(--btn-radius);
-      background:rgba(255,255,255,0.08);
-      backdrop-filter:hue-rotate(180deg) blur(4px);
-      box-shadow:0 6px 18px rgba(0,0,0,0.6);
-      border:1px solid rgba(255,255,255,0.06);
-      color:#fff;
-      cursor:pointer;
-      user-select:none;
-      font-size:var(--btn-font-size);
-      text-decoration:none;
-      opacity:0;
-      transition:opacity 0.5s ease;
-    }
-    .overlay-btn.visible{opacity:1;}
-    .overlay-btn.disabled{opacity:0.45; pointer-events:none;}
-    .hud{position:absolute;right:8px;bottom:8px;padding:6px 10px;background:rgba(0,0,0,0.5);border-radius:6px;font-size:13px;color:#ddd;}
-    .info{margin-top:12px;font-size:14px;opacity:0.9;}
-    @media (max-width:720px){:root{--btn-width:110px;--btn-height:40px;--btn-font-size:14px;}}
-  </style>
+html, body { height: 100%; margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:#111;color:#eee;}
+.player-wrap{ max-width:1100px; margin:40px auto; padding:10px;}
+.video-container{ position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;touch-action:none;user-select:none;}
+video{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; background:#000;}
+.overlay-btn{
+  position:absolute;
+  top:var(--btn-top);
+  left:var(--btn-left);
+  transform:translate(-50%,-50%);
+  width:var(--btn-width);
+  height:var(--btn-height);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:var(--btn-radius);
+  background:rgba(255,255,255,0.08);
+  backdrop-filter:hue-rotate(180deg) blur(4px);
+  box-shadow:0 6px 18px rgba(0,0,0,0.6);
+  border:1px solid rgba(255,255,255,0.06);
+  color:#fff;
+  cursor:pointer;
+  user-select:none;
+  font-size:var(--btn-font-size);
+  text-decoration:none;
+  opacity:0;
+  transition:opacity 0.5s ease;
+}
+.overlay-btn.visible{opacity:1;}
+.overlay-btn.disabled{opacity:0.45; pointer-events:none;}
+.hud{position:absolute;right:8px;bottom:8px;padding:6px 10px;background:rgba(0,0,0,0.5);border-radius:6px;font-size:13px;color:#ddd;}
+.info{margin-top:12px;font-size:14px;opacity:0.9;}
+@media (max-width:720px){:root{--btn-width:110px;--btn-height:40px;--btn-font-size:14px;}}
+</style>
 </head>
 <body>
-  <div class="player-wrap">
-    <h2>Scrubbable WebM Player</h2>
-    <div id="videoContainer" class="video-container" aria-label="Scrubbable video player">
-      <video id="video" preload="metadata" playsinline loop>
-        <source src="video.webm" type="video/webm">
-        Your browser does not support the video tag.
-      </video>
-      <a id="overlayBtn" class="overlay-btn" role="button" href="#" target="_self" aria-label="Open link for current frame">Go</a>
-      <div id="hud" class="hud" aria-hidden="true">frame: - | time: - | speed: 0</div>
-    </div>
-    <p class="info">Drag horizontally to scrub the video. Release to see momentum and snap to nearest link. Button fades in on snap.</p>
+<div class="player-wrap">
+  <h2>Scrubbable WebM Player</h2>
+  <div id="videoContainer" class="video-container" aria-label="Scrubbable video player">
+    <video id="video" preload="metadata" playsinline loop>
+      <source src="video.webm" type="video/webm">
+      Your browser does not support the video tag.
+    </video>
+    <a id="overlayBtn" class="overlay-btn" role="button" href="#" target="_self" aria-label="Open link for current frame">Go</a>
+    <div id="hud" class="hud" aria-hidden="true">frame: - | time: - | speed: 0</div>
   </div>
+  <p class="info">Drag horizontally to scrub the video. Release to see momentum and snap to nearest link. Button fades in on snap.</p>
+</div>
 
 <script>
 (function(){
-  const video = document.getElementById('video');
-  const overlayBtn = document.getElementById('overlayBtn');
-  const hud = document.getElementById('hud');
-  const container = document.getElementById('videoContainer');
+const video=document.getElementById('video');
+const overlayBtn=document.getElementById('overlayBtn');
+const hud=document.getElementById('hud');
+const container=document.getElementById('videoContainer');
 
-  const fps = 24;
-  const invertMouse = true;
+const fps=24;
+const invertMouse=false;
+const links=[
+  {frame:20,url:'https://google.com',label:'Google'},
+  {frame:65,url:'https://blender.org',label:'Blender'},
+  {frame:120,url:'https://yrgo.com',label:'Yrgo'}
+];
+const buttonTarget='_self';
 
-  const links = [
-    { frame:20, url:'https://google.com', label:'Google'},
-    { frame:65, url:'https://blender.org', label:'Blender'},
-    { frame:120,url:'https://yrgo.com', label:'Yrgo'}
-  ];
-  const buttonTarget='_self';
+let duration=0,totalFrames=0,isDragging=false,startX=0,startFrame=0,activeLinkIndex=-1,snapAnimation=null;
+let momentum=0;
 
-  let duration=0,totalFrames=0,isDragging=false,startX=0,startFrame=0,activeLinkIndex=-1,snapAnimation=null;
-  let velocity=0,lastX=0,lastTime=0;
+overlayBtn.target=buttonTarget;
+links.sort((a,b)=>a.frame-b.frame);
 
-  overlayBtn.target=buttonTarget;
-  links.sort((a,b)=>a.frame-b.frame);
+function updateLinkTimes(){ for(const l of links) l.time=l.frame/fps; }
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function frameFromTime(t){return Math.round(t*fps);}
+function timeFromFrame(f){return f/fps;}
+function updateHUD(speed=0){const frame=frameFromTime(video.currentTime);hud.textContent=`frame:${frame} | time:${video.currentTime.toFixed(2)}s | speed:${speed.toFixed(2)}`;}
+function showButton(){overlayBtn.classList.add('visible');}
+function hideButton(){overlayBtn.classList.remove('visible');}
+function wrappedFrameDistance(a,b){let diff=b-a;if(Math.abs(diff)>totalFrames/2) diff-=Math.sign(diff)*totalFrames;return diff;}
 
-  function updateLinkTimes(){ for(const l of links){ l.time = l.frame / fps; } }
-  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-  function frameFromTime(t){return Math.round(t*fps);}
-  function timeFromFrame(f){return f/fps;}
-  function updateHUD(speed=0){const frame=frameFromTime(video.currentTime); hud.textContent=`frame:${frame} | time:${video.currentTime.toFixed(2)}s | speed:${speed.toFixed(2)}`;}
-  function showButton(){overlayBtn.classList.add('visible');}
-  function hideButton(){overlayBtn.classList.remove('visible');}
-  function wrappedFrameDistance(a,b){let diff=b-a;if(Math.abs(diff)>totalFrames/2) diff-=Math.sign(diff)*totalFrames;return diff;}
+function setActiveLinkByFrame(frame){
+  if(links.length===0){activeLinkIndex=-1;overlayBtn.classList.add('disabled');overlayBtn.href='#';overlayBtn.textContent='';return;}
+  let nearest=0,bestDist=Infinity;
+  for(let i=0;i<links.length;i++){const d=Math.abs(frame-links[i].frame);if(d<bestDist){bestDist=d;nearest=i;}}
+  activeLinkIndex=nearest;
+  overlayBtn.classList.remove('disabled');
+  overlayBtn.href=links[activeLinkIndex].url;
+  overlayBtn.textContent=links[activeLinkIndex].label||'Go';
+  overlayBtn.setAttribute('data-active-frame',links[activeLinkIndex].frame);
+}
 
-  function setActiveLinkByFrame(frame){
-    if(links.length===0){activeLinkIndex=-1;overlayBtn.classList.add('disabled');overlayBtn.href='#';overlayBtn.textContent='';return;}
-    let nearest=0,bestDist=Infinity;
-    for(let i=0;i<links.length;i++){const d=Math.abs(frame-links[i].frame);if(d<bestDist){bestDist=d;nearest=i;}}
-    activeLinkIndex=nearest;
-    overlayBtn.classList.remove('disabled');
-    overlayBtn.href=links[activeLinkIndex].url;
-    overlayBtn.textContent=links[activeLinkIndex].label||'Go';
-    overlayBtn.setAttribute('data-active-frame',links[activeLinkIndex].frame);
+function tweenToTime(targetTime,durationMs){
+  if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
+  const start=video.currentTime;
+  const targetFrame=frameFromTime(targetTime);
+  const startFrameNum=frameFromTime(start);
+  const diffFrames=wrappedFrameDistance(startFrameNum,targetFrame);
+  const startTs=performance.now();
+  function step(now){
+    const t=clamp((now-startTs)/durationMs,0,1);
+    const eased=1-(1-t)*(1-t);
+    const currentFrame=startFrameNum+diffFrames*eased;
+    const wrappedFrame=(currentFrame+totalFrames)%totalFrames;
+    video.currentTime=timeFromFrame(wrappedFrame);
+    updateHUD(0);
+    if(t<1){snapAnimation={raf:requestAnimationFrame(step)};}
+    else{snapAnimation=null; setActiveLinkByFrame(frameFromTime(video.currentTime)); showButton();}
   }
+  snapAnimation={raf:requestAnimationFrame(step)};
+}
 
-  function tweenToTime(targetTime,durationMs){
-    if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
-    const start=video.currentTime;
-    const targetFrame=frameFromTime(targetTime);
-    const startFrameNum=frameFromTime(start);
-    const diffFrames=wrappedFrameDistance(startFrameNum,targetFrame);
-    const startTs=performance.now();
-
-    function step(now){
-      const t=clamp((now-startTs)/durationMs,0,1);
-      const eased=1-(1-t)*(1-t);
-      const currentFrame=startFrameNum+diffFrames*eased;
-      const wrappedFrame=(currentFrame+totalFrames)%totalFrames;
-      video.currentTime=timeFromFrame(wrappedFrame);
-      updateHUD(0);
-      if(t<1){snapAnimation={raf:requestAnimationFrame(step)};}
-      else{snapAnimation=null; setActiveLinkByFrame(frameFromTime(video.currentTime)); showButton();}
-    }
-    snapAnimation={raf:requestAnimationFrame(step)};
+function snapToNearestLink(){
+  let currentFrame=frameFromTime(video.currentTime);
+  if(links.length===0) return;
+  let nearestIndex=0,bestDist=Infinity;
+  for(let i=0;i<links.length;i++){
+    const d=Math.abs(wrappedFrameDistance(currentFrame, links[i].frame));
+    if(d<bestDist){bestDist=d; nearestIndex=i;}
   }
+  const targetTime=links[nearestIndex].time;
+  const snapDuration=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration'))||400;
+  tweenToTime(targetTime,snapDuration);
+}
 
-  function snapToNearestLink(){
-    let currentFrame=frameFromTime(video.currentTime);
-    if(links.length===0) return;
-    let nearestIndex=0,bestDist=Infinity;
-    for(let i=0;i<links.length;i++){
-      const d=Math.abs(wrappedFrameDistance(currentFrame, links[i].frame));
-      if(d<bestDist){bestDist=d; nearestIndex=i;}
-    }
-    const targetTime=links[nearestIndex].time;
-    const snapDuration=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap-duration'))||400;
-    tweenToTime(targetTime,snapDuration);
-  }
+container.addEventListener('pointerdown',(ev)=>{
+  if(ev.isPrimary===false) return;
+  ev.preventDefault();
+  isDragging=true;
+  startX=ev.clientX;
+  startFrame=frameFromTime(video.currentTime);
+  hideButton();
+  momentum=0;
+  container.setPointerCapture(ev.pointerId);
+  if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
+});
 
-  container.addEventListener('pointerdown',(ev)=>{
-    if(ev.isPrimary===false) return;
-    ev.preventDefault();
-    isDragging=true;
-    startX=ev.clientX;
-    startFrame=frameFromTime(video.currentTime);
-    hideButton();
-    lastX=ev.clientX;
-    lastTime=performance.now();
-    velocity=0;
-    container.setPointerCapture(ev.pointerId);
-    if(snapAnimation){cancelAnimationFrame(snapAnimation.raf);snapAnimation=null;}
-  });
+container.addEventListener('pointermove',(ev)=>{
+  if(!isDragging) return; ev.preventDefault();
+  const dx=ev.clientX-startX;
+  const fraction=(invertMouse?-dx:dx)/container.clientWidth;
+  let newFrame=startFrame + fraction*totalFrames;
+  newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
+  video.currentTime=timeFromFrame(newFrame);
+  momentum=fraction*totalFrames*0.25; // inertia factor
+  updateHUD(Math.abs(momentum));
+  setActiveLinkByFrame(newFrame);
+});
 
-  container.addEventListener('pointermove',(ev)=>{
-    if(!isDragging) return; ev.preventDefault();
-    const dx=ev.clientX-lastX;
-    const dt=Math.max(1,performance.now()-lastTime);
-    velocity = dx/dt; // px/ms
-    lastX=ev.clientX; lastTime=performance.now();
+container.addEventListener('pointerup',(ev)=>{
+  if(!isDragging) return;
+  isDragging=false;
+  container.releasePointerCapture(ev.pointerId);
+  const friction=0.9;
 
-    const moveDx=ev.clientX-startX;
-    const fraction=(invertMouse?-moveDx:moveDx)/container.clientWidth;
-    let newFrame=startFrame + fraction*totalFrames;
+  function momentumStep(){
+    momentum*=friction;
+    if(Math.abs(momentum)<0.01){ snapToNearestLink(); return; }
+    let newFrame=frameFromTime(video.currentTime)+momentum;
     newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
     video.currentTime=timeFromFrame(newFrame);
-    updateHUD(Math.abs(velocity*50)); 
+    updateHUD(Math.abs(momentum));
     setActiveLinkByFrame(newFrame);
-  });
-
-  container.addEventListener('pointerup',(ev)=>{
-    if(!isDragging) return;
-    isDragging=false;
-    container.releasePointerCapture(ev.pointerId);
-
-    const friction=0.90; // higher friction = slows faster
-    const maxDelta=3; // max frames per step to prevent overspin
-
-    function momentumStep(){
-      velocity *= friction;
-      const deltaFrame=clamp(velocity*100, -maxDelta, maxDelta);
-      if(Math.abs(deltaFrame)<0.01){ snapToNearestLink(); return; }
-      let newFrame=frameFromTime(video.currentTime)+deltaFrame;
-      newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
-      video.currentTime=timeFromFrame(newFrame);
-      updateHUD(Math.abs(deltaFrame));
-      setActiveLinkByFrame(newFrame);
-      requestAnimationFrame(momentumStep);
-    }
     requestAnimationFrame(momentumStep);
-  });
+  }
+  requestAnimationFrame(momentumStep);
+});
 
-  container.addEventListener('pointercancel',()=>{isDragging=false;});
-  container.addEventListener('contextmenu',(e)=>e.preventDefault());
+container.addEventListener('pointercancel',()=>{isDragging=false;});
+container.addEventListener('contextmenu',(e)=>e.preventDefault());
 
-  video.addEventListener('loadedmetadata',()=>{
-    duration=video.duration||0;
-    totalFrames=Math.floor(duration*fps);
-    updateLinkTimes();
-    for(const l of links){ if(l.frame<0) l.frame=0; if(l.frame>totalFrames) l.frame=totalFrames;}
-    setActiveLinkByFrame(0);
-    updateHUD();
-  });
+video.addEventListener('loadedmetadata',()=>{
+  duration=video.duration||0;
+  totalFrames=Math.floor(duration*fps);
+  updateLinkTimes();
+  for(const l of links){if(l.frame<0) l.frame=0;if(l.frame>totalFrames) l.frame=totalFrames;}
+  setActiveLinkByFrame(0);
+  updateHUD();
+});
 
-  video.addEventListener('timeupdate',()=>{ if(!isDragging && !snapAnimation) updateHUD(); });
+video.addEventListener('timeupdate',()=>{ if(!isDragging && !snapAnimation) updateHUD(); });
 })();
 </script>
 </body>
