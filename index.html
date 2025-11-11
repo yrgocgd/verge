@@ -180,7 +180,7 @@
 
     function momentumStep(){
       velocity *= friction;
-      const deltaFrame=clamp(velocity*50, -maxDelta, maxDelta);
+      const deltaFrame=clamp(velocity*5, -maxDelta, maxDelta);
       if(Math.abs(deltaFrame)<0.01){ snapToNearestLink(); return; }
       let newFrame=frameFromTime(video.currentTime)+deltaFrame;
       newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
