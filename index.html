@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Scrubbable WebM Player with Momentum</title>
+  <title>Scrubbable WebM Player with Smooth Momentum</title>
   <style>
     :root {
       --btn-width: 100px;
@@ -81,7 +81,7 @@
   const buttonTarget='_self';
 
   let duration=0,totalFrames=0,isDragging=false,startX=0,startFrame=0,activeLinkIndex=-1,snapAnimation=null;
-  let velocity=0,lastX=0,lastTime=0; // momentum
+  let velocity=0,lastX=0,lastTime=0;
 
   overlayBtn.target=buttonTarget;
   links.sort((a,b)=>a.frame-b.frame);
@@ -157,8 +157,8 @@
   container.addEventListener('pointermove',(ev)=>{
     if(!isDragging) return; ev.preventDefault();
     const dx=ev.clientX-lastX;
-    const dt=Math.max(1, performance.now()-lastTime);
-    velocity=dx/dt; 
+    const dt=Math.max(1,performance.now()-lastTime);
+    velocity = dx/dt; // px/ms
     lastX=ev.clientX; lastTime=performance.now();
 
     const moveDx=ev.clientX-startX;
@@ -166,7 +166,7 @@
     let newFrame=startFrame + fraction*totalFrames;
     newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
     video.currentTime=timeFromFrame(newFrame);
-    updateHUD(Math.abs(velocity*1000)); // visa hastighet
+    updateHUD(Math.abs(velocity*50)); 
     setActiveLinkByFrame(newFrame);
   });
 
@@ -175,15 +175,17 @@
     isDragging=false;
     container.releasePointerCapture(ev.pointerId);
 
-    const friction=0.92;
+    const friction=0.92; // higher friction = slows faster
+    const maxDelta=3; // max frames per step to prevent overspin
+
     function momentumStep(){
-      velocity*=friction;
-      if(Math.abs(velocity)<0.001){ snapToNearestLink(); return; }
-      const deltaFrame=velocity*totalFrames*4;
+      velocity *= friction;
+      const deltaFrame=clamp(velocity*50, -maxDelta, maxDelta);
+      if(Math.abs(deltaFrame)<0.01){ snapToNearestLink(); return; }
       let newFrame=frameFromTime(video.currentTime)+deltaFrame;
       newFrame=((newFrame%totalFrames)+totalFrames)%totalFrames;
       video.currentTime=timeFromFrame(newFrame);
-      updateHUD(Math.abs(velocity*1000));
+      updateHUD(Math.abs(deltaFrame));
       setActiveLinkByFrame(newFrame);
       requestAnimationFrame(momentumStep);
     }
