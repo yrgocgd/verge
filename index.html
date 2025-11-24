@@ -106,25 +106,16 @@
         const size = new THREE.Vector3();
         box.getSize(size);
 
-        // Distance from camera to model center
         const dist = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
-
-        // Convert vertical FOV to height at distance
         const vFOV = THREE.MathUtils.degToRad(camera.fov);
         const heightAtDist = 2 * Math.tan(vFOV / 2) * dist;
-
-        // Scale so the largest dimension fits the height or width
         const aspect = window.innerWidth / window.innerHeight;
-        const modelWidth = size.x;
-        const modelHeight = size.y;
-        const modelDepth = size.z;
 
-        const widthScale = heightAtDist * aspect / modelWidth;
-        const heightScale = heightAtDist / modelHeight;
-        const depthScale = heightAtDist / modelDepth;
+        const widthScale = heightAtDist * aspect / size.x;
+        const heightScale = heightAtDist / size.y;
+        const depthScale = heightAtDist / size.z;
 
         const scale = Math.min(widthScale, heightScale, depthScale);
-
         model.scale.setScalar(scale);
     }
 
