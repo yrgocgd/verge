@@ -55,7 +55,7 @@ controls.enableDamping = true;
 // ------------------------------------------------------
 new RGBELoader()
     .setDataType(THREE.FloatType)
-    .load('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/venice_sunset_1k.hdr', (texture) => {
+    .load('venice_sunset_1k.hdr', (texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture;
         scene.background = texture;
